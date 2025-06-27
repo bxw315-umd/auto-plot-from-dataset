@@ -52,7 +52,8 @@ def populate_datasets_from_local_dir():
 
 @app.function(image=function_image, volumes={"/datasets": dataset_volume}, secrets=[modal.Secret.from_name("openai-secret")])
 def generate_plot(dataset_name: str, user_prompt: str):
-    workspace_volume = modal.Volume.from_name(assign_volume_name(), create_if_missing=True)
+    volume_name = assign_volume_name()
+    workspace_volume = modal.Volume.from_name(volume_name, create_if_missing=True)
 
     with workspace_volume.batch_upload() as batch:
         batch.put_directory(f"/datasets/{dataset_name}", "/dataset")
@@ -66,12 +67,13 @@ def generate_plot(dataset_name: str, user_prompt: str):
     
     from coding_agent.coding_agent import run_coding_agent
     result = run_coding_agent(coding_agent_prompt, sb, logger="file", file_logger_path="/root/shell_log.jsonl")
+    sb.terminate()
 
     # move the shell log to the workspace volume
     with workspace_volume.batch_upload() as batch:
         batch.put_file("/root/shell_log.jsonl", "shell_log.jsonl")
 
-    print(result)
+    return volume_name
 
 @app.local_entrypoint()
 def main():
