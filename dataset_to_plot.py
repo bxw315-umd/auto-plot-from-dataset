@@ -3,6 +3,7 @@ from datetime import datetime
 import uuid
 import shutil
 import os
+import json
 
 app = modal.App("dataset-to-plot")
 
@@ -66,7 +67,17 @@ def generate_plot(dataset_name: str, user_prompt: str):
     coding_agent_prompt = get_agent_command(user_prompt)
     
     from coding_agent.coding_agent import run_coding_agent
-    result = run_coding_agent(coding_agent_prompt, sb, logger="file", file_logger_path="/root/shell_log.jsonl")
+    try:
+        result = run_coding_agent(coding_agent_prompt, sb, logger="file", file_logger_path="/root/shell_log.jsonl")
+        # we need to store the shell log outside the volume because we operate outside the sandbox so writing to volume does not work the same way as writing to a file
+    except Exception as e:
+        # add the error to the shell log
+        with open("/root/shell_log.jsonl", "a") as f:
+            f.write(json.dumps({
+                "type": "error",
+                "error": str(e)
+            }, ensure_ascii=False) + "\n")
+        
     sb.terminate()
 
     # move the shell log to the workspace volume
